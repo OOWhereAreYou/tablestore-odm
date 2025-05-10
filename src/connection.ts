@@ -1,7 +1,9 @@
 // src/connection.ts
 
+import { config } from "dotenv";
 import * as Tablestore from "tablestore";
 
+config();
 /**
  * Tablestore ODM 连接配置项。
  * 包含核心配置并允许透传其他 Tablestore.Client 选项。
@@ -21,7 +23,6 @@ export interface OdmConfig {
   /**
    * Allow any other Tablestore client options to be passed through.
    * Using unknown for better type safety than any.
-   * // TODO: 考虑是否需要更严格地限制允许透传的选项，或者进行类型检查。
    */
   [key: string]: unknown;
 }
@@ -33,19 +34,27 @@ export class Connection {
   private readonly config: OdmConfig;
   private client: Tablestore.Client | null = null;
   constructor(config: OdmConfig) {
+    const endpoint = config.endpoint ?? process.env.TABLE_STORE_ENDPOINT ?? "";
+    const accessKeyId =
+      config.accessKeyId ?? process.env.TABLE_STORE_ACCESS_KEY_ID ?? "";
+    const secretAccessKey =
+      config.secretAccessKey ?? process.env.TABLE_STORE_SECRET_ACCESS_KEY ?? "";
+    const instancename =
+      config.instancename ?? process.env.TABLE_STORE_INSTANCE_NAME ?? "";
+
     // 验证必要的配置是否存在
-    if (
-      !config.endpoint ||
-      !config.accessKeyId ||
-      !config.secretAccessKey ||
-      !config.instancename
-    ) {
+    if (!endpoint || !accessKeyId || !secretAccessKey || !instancename) {
       throw new Error(
         "缺少必要的 Tablestore 配置信息 (endpoint, accessKeyId, secretAccessKey, instancename)"
       );
     }
-    // 存储配置的副本，避免外部修改影响内部状态
-    this.config = { ...config };
+
+    this.config = {
+      endpoint,
+      accessKeyId,
+      secretAccessKey,
+      instancename,
+    };
   }
 
   /**
