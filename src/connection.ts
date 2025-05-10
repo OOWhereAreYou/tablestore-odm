@@ -36,9 +36,9 @@ export class Connection {
   constructor(config: OdmConfig) {
     const endpoint = config.endpoint ?? process.env.TABLE_STORE_ENDPOINT ?? "";
     const accessKeyId =
-      config.accessKeyId ?? process.env.TABLE_STORE_ACCESS_KEY_ID ?? "";
+      config.accessKeyId ?? process.env.ALIYUN_ACCESS_KEY_ID ?? "";
     const secretAccessKey =
-      config.secretAccessKey ?? process.env.TABLE_STORE_SECRET_ACCESS_KEY ?? "";
+      config.secretAccessKey ?? process.env.ALIYUN_ACCESS_KEY_SECRET ?? "";
     const instancename =
       config.instancename ?? process.env.TABLE_STORE_INSTANCE_NAME ?? "";
 
