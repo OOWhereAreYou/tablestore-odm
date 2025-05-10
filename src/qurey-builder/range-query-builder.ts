@@ -1,9 +1,14 @@
-import * as Tablestore from 'tablestore';
+import * as Tablestore from "tablestore";
 
-import { ModelStatic, PlainPrimaryKeys } from '../model';
-import { BaseZod, DbSchema, KeyAllowed, OutputType } from '../schema';
-import { errorResult, executeSdkCall, OdmResult, successResult } from '../utils';
-import { FilterFactory } from './filter-factory';
+import { ModelStatic, PlainPrimaryKeys } from "../model";
+import { BaseZod, DbSchema, KeyAllowed, OutputType } from "../schema";
+import {
+  errorResult,
+  executeSdkCall,
+  OdmResult,
+  successResult,
+} from "../utils";
+import { FilterFactory } from "./filter-factory";
 
 const DEFAULT_LIMIT = 20;
 
@@ -33,7 +38,7 @@ export class RangeQueryBuilder<T extends BaseZod> {
     indexName?: string
   ) {
     if (indexName) {
-      const gsi = modelClass.schema.globalSecondaryIndexes.find(
+      const gsi = modelClass.schema.GSIs.find(
         (gsi) => gsi.indexName === indexName
       );
       if (!gsi) {

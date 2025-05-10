@@ -1,9 +1,14 @@
-import * as Tablestore from 'tablestore';
+import * as Tablestore from "tablestore";
 
-import { ModelStatic, OutputType } from '../model'; // 假设 OutputType 在 model.ts
-import { BaseZod, KeyAllowed } from '../schema'; // 假设 DbSchema 包含 Search Index 定义
-import { errorResult, executeSdkCall, OdmResult, successResult } from '../utils'; // 假设在 utils
-import { QueryFactory, SearchQuery } from './query-factory';
+import { ModelStatic, OutputType } from "../model"; // 假设 OutputType 在 model.ts
+import { BaseZod, KeyAllowed } from "../schema"; // 假设 DbSchema 包含 Search Index 定义
+import {
+  errorResult,
+  executeSdkCall,
+  OdmResult,
+  successResult,
+} from "../utils"; // 假设在 utils
+import { QueryFactory, SearchQuery } from "./query-factory";
 
 const DEFAULT_SEARCH_LIMIT = 10;
 

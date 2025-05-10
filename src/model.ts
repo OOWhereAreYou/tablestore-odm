@@ -1,12 +1,12 @@
 // src/model.ts
-import * as Tablestore from 'tablestore';
+import * as Tablestore from "tablestore";
 
-import { Connection } from './connection';
-import { RangeQueryBuilder } from './qurey-builder/range-query-builder';
-import { SearchQueryBuilder } from './qurey-builder/search-query-builder';
-import { BaseZod, DbSchema, InputType, OutputType } from './schema';
+import { Connection } from "./connection";
+import { RangeQueryBuilder } from "./qurey-builder/range-query-builder";
+import { SearchQueryBuilder } from "./qurey-builder/search-query-builder";
+import { BaseZod, DbSchema, InputType, OutputType } from "./schema";
 // 假设通用工具在 './common' 中
-import { errorResult, executeSdkCall, OdmResult, successResult } from './utils';
+import { errorResult, executeSdkCall, OdmResult, successResult } from "./utils";
 
 /**
  *  用于表示主键值的纯 JavaScript 值类型。
@@ -487,7 +487,7 @@ export function createModel<T extends BaseZod>(
       return await this._batchWrite(input, "DELETE");
     }
 
-    static find(): RangeQueryBuilder<T> {
+    static range(): RangeQueryBuilder<T> {
       const client = this.connection.getClient();
       return new RangeQueryBuilder<T>(this, client);
     }

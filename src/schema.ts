@@ -1,10 +1,14 @@
-import * as Tablestore from 'tablestore';
-import * as zod from 'zod';
+import * as Tablestore from "tablestore";
+import * as zod from "zod";
 
 import {
-    jsToTablestore, TableStoreAttributesInput, TableStorePrimaryKeyInput, TableStoreRow,
-    tablestoreToJs, TableStoreUpdateOfAttributeColumns
-} from './type-converter';
+  jsToTablestore,
+  TableStoreAttributesInput,
+  TableStorePrimaryKeyInput,
+  TableStoreRow,
+  tablestoreToJs,
+  TableStoreUpdateOfAttributeColumns,
+} from "./type-converter";
 
 type EnumValues<T> = T[keyof T];
 export type BaseZod = zod.ZodObject<zod.ZodRawShape>;
@@ -37,7 +41,7 @@ export type JavaScriptArr = {
 }[];
 
 // GSI 定义接口
-interface GsiDefinition<T extends BaseZod> {
+export interface GsiDefinition<T extends BaseZod> {
   /** 索引的名称 (必须与 Tablestore 中创建的索引名称一致) */
   indexName: string;
   /** 构成此 GSI 主键的列名数组 (按顺序) */
@@ -49,7 +53,7 @@ interface GsiDefinition<T extends BaseZod> {
    * 省略或 undefined 可能表示仅包含 GSI 主键 (默认行为，取决于 Tablestore)。
    * 明确定义有助于 ODM 进行 select 校验。
    */
-  projectedColumns?: "ALL" | string[];
+  definedColumn?: "ALL" | KeyAllowed<T>;
 }
 
 export const FieldType = Tablestore.FieldType;
@@ -90,7 +94,7 @@ export interface SchemaOptions<T extends BaseZod> {
   /**
    * 主键字段名称列表，必须与 Tablestore 表定义一致。
    */
-  primaryKeys?: KeyAllowed<T>;
+  primaryKeys: KeyAllowed<T>;
   /**
    * 是否自动管理时间戳字段 (`createdAt`, `updatedAt`)。
    */
@@ -98,11 +102,11 @@ export interface SchemaOptions<T extends BaseZod> {
   /**
    * 可选：定义与此 Schema 关联的全局二级索引
    */
-  globalSecondaryIndexes?: GsiDefinition<T>[];
+  GSIs?: ReadonlyArray<GsiDefinition<T>>;
   /**
    * 可选：定义与此 Schema 关联的多元索引
    */
-  searchIndexes?: SearchIndexDefinition<T>[];
+  searchIndexes?: ReadonlyArray<SearchIndexDefinition<T>>;
 }
 
 export class DbSchema<T extends BaseZod> {
@@ -117,7 +121,7 @@ export class DbSchema<T extends BaseZod> {
   /** 其他配置选项 */
   public readonly options: SchemaOptions<T>;
   /** 全局二级索引定义 */
-  public readonly globalSecondaryIndexes: GsiDefinition<T>[] = [];
+  public readonly GSIs: GsiDefinition<T>[] = [];
   /** 多元索引定义 */
   public readonly searchIndexs: SearchIndexDefinition<T>[] = [];
   /** 时间戳 */
@@ -128,13 +132,12 @@ export class DbSchema<T extends BaseZod> {
     const {
       primaryKeys = [],
       timestamps = true,
-      globalSecondaryIndexes,
+      GSIs: globalSecondaryIndexes,
     } = options;
     const primaryErrMsg: string[] = [];
-    let primaryErr: Error | null = null;
     // 1. 校验 primaryKeys
     if (!primaryKeys || primaryKeys.length === 0) {
-      primaryErrMsg.push("必须指定主键字段");
+      primaryErrMsg.push("主键不能为空");
     }
     const definitionKeys = Object.keys(denitions.shape) as KeyAllowed<T>;
     for (const pk of primaryKeys) {
@@ -156,42 +159,43 @@ export class DbSchema<T extends BaseZod> {
         }
       }
     }
-
-    // 4. 错误处理
-    if (primaryErrMsg.length > 0) {
-      primaryErr = new Error(primaryErrMsg.join("\n"));
+    // 3. 校验 searchIndexs
+    if (options.searchIndexes) {
+      for (const si of options.searchIndexes) {
+        const siPks = si.indexSetting.schema.fieldSchemas.map(
+          (fs) => fs.fieldName
+        );
+        const errSiPks = siPks.filter((pk) => !definitionKeys.includes(pk));
+        if (errSiPks.length > 0) {
+          primaryErrMsg.push(
+            `SearchIndex "${si.indexName}" 主键 "${errSiPks.join(
+              ", "
+            )}" 不在 Schema 中`
+          );
+        }
+      }
     }
-
-    return {
-      definition: denitions,
-      primaryKeys,
-      options: { primaryKeys, timestamps, globalSecondaryIndexes },
-      primaryErr,
-      definitionKeys,
-      attributeKeys: definitionKeys.filter((key) => !primaryKeys.includes(key)),
-    };
+    if (primaryErrMsg.length > 0) {
+      throw new Error(primaryErrMsg.join("\n"));
+    }
   }
 
   constructor(schema: T, options: SchemaOptions<T>) {
-    const {
-      definition,
-      primaryKeys,
-      options: _options,
-      primaryErr,
-      definitionKeys,
-      attributeKeys,
-    } = this._init(schema, options);
-    if (primaryErr) {
-      throw primaryErr;
-    }
-    this.definition = definition;
-    this.primaryKeys = primaryKeys;
-    this.options = _options;
-    this.globalSecondaryIndexes = _options.globalSecondaryIndexes ?? [];
-    this.searchIndexs = options.searchIndexes ?? [];
+    this.definition = schema;
+    this.options = options;
+    this._init(schema, options);
+    // 初始化 primaryKeys, attributeKeys, timestamps (简化)
+    this.primaryKeys = options.primaryKeys;
+    const definitionKeys = Object.keys(schema.shape) as SchemaKey<T>[];
+    this.attributeKeys = definitionKeys.filter(
+      (key) => !this.primaryKeys.includes(key)
+    );
+    this.timestamps = options.timestamps ?? true;
     this.difinitionKeys = definitionKeys;
-    this.attributeKeys = attributeKeys;
-    this.timestamps = _options.timestamps;
+    this.GSIs = options.GSIs ? ([...options.GSIs] as GsiDefinition<T>[]) : [];
+    this.searchIndexs = options.searchIndexes
+      ? ([...options.searchIndexes] as SearchIndexDefinition<T>[])
+      : [];
   }
 
   // 转换为 Tablestore 数组
@@ -445,9 +449,7 @@ export class DbSchema<T extends BaseZod> {
    * @returns { Array<string> } 返回二级索引的pks。
    */
   public getGsiPks(gsiIndexName: string): KeyAllowed<T> {
-    const gsi = this.globalSecondaryIndexes.find(
-      (g) => g.indexName === gsiIndexName
-    );
+    const gsi = this.GSIs.find((g) => g.indexName === gsiIndexName);
     if (!gsi) {
       return [];
     }

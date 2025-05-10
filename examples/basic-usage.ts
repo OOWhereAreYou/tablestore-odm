@@ -1,11 +1,16 @@
 // examples/basic-usage.ts
 
-import { config } from 'dotenv';
-import { z } from 'zod';
+import { config } from "dotenv";
+import { z } from "zod";
 
-import { Connection, OdmConfig } from '../src/connection';
-import { createModel } from '../src/model';
-import { createSchema, FieldType, SchemaOptions } from '../src/schema';
+import { Connection, OdmConfig } from "../src/connection";
+import { createModel } from "../src/model";
+import {
+  createSchema,
+  DbSchema,
+  FieldType,
+  SchemaOptions,
+} from "../src/schema";
 
 config();
 
@@ -25,6 +30,12 @@ const zodProductSchema = z.object(ProductSchemaDefinition);
 
 const ProductSchemaOptions: SchemaOptions<typeof zodProductSchema> = {
   primaryKeys: ["productId", "category"],
+  GSIs: [
+    {
+      indexName: "category_index",
+      primaryKeys: ["category"],
+    },
+  ],
   searchIndexes: [
     {
       indexName: "products_table_index",
@@ -36,18 +47,14 @@ const ProductSchemaOptions: SchemaOptions<typeof zodProductSchema> = {
               fieldType: FieldType.KEYWORD,
               index: true,
             },
-            {
-              fieldName: "name",
-              fieldType: FieldType.KEYWORD,
-              index: true,
-            },
           ],
         },
       },
     },
   ],
 };
-// 将创建好的 zod Schema 实例传给 createSchema
+
+// 为 ProductSchema 添加显式类型注解
 const ProductSchema = createSchema(zodProductSchema, ProductSchemaOptions);
 
 const realConfig: OdmConfig = {
@@ -63,12 +70,13 @@ const realConfig: OdmConfig = {
 // --- 2. 新建连接 ---
 const connection = new Connection(realConfig);
 
-// --- 3. 新建Model---
+// --- 3. 新建Model--- d
 const TABLE_NAME = "products_table";
 const Product = createModel("Product", ProductSchema, TABLE_NAME, connection);
 
 async function runExample() {
-  searchQuery();
+  const gsiPks = ProductSchema.getGsiPks("category_index");
+  console.log(gsiPks);
 }
 
 // --- Run the Example ---
@@ -184,7 +192,7 @@ async function deleteProductExample() {
 
 async function rangeQuery() {
   const startTime = Date.now();
-  const result = await Product.find()
+  const result = await Product.range()
     .startWith({})
     .endAt({})
     .filter((f) => f.and(f.greaterThan("price", 10), f.lessThan("price", 17)))
