@@ -135,6 +135,13 @@ export interface ModelStatic<T extends BaseZod> {
   deleteById(
     primaryKeys: PlainPrimaryKeys
   ): Promise<OdmResult<PlainPrimaryKeys>>;
+
+  deleteMany(
+    input: Partial<InputType<T>>[]
+  ): Promise<OdmResult<InputType<T>[] | undefined>>;
+  insertMany(
+    input: InputType<T>[]
+  ): Promise<OdmResult<InputType<T>[] | undefined>>;
 }
 
 // --- 模型创建函数 ---
@@ -416,7 +423,7 @@ export function createModel<T extends BaseZod>(
     static async _batchWrite(
       input: Partial<InputType<T>>[],
       type: "INSERT" | "DELETE"
-    ) {
+    ): Promise<OdmResult<InputType<T>[] | undefined>> {
       const client = this.client;
       const arr = input.map((i) => {
         const pks = schema.convertToTablestorePks(i);
